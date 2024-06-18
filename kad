@@ -14,8 +14,7 @@ failure() {
 
 help() {
 
-    echo "
-\033[4;37mKAD - Krums Auto Deploy\033[0m
+    printf "\033[4;37mKAD - Krums Auto Deploy\033[0m
 
 This is a simple script to run commands and scripts on multiple machines in parallel.
 
@@ -37,8 +36,7 @@ Example: \033[1;37mservergroup='krum@10.0.0.100 krum@10.0.0.101'\033[0m
 
 \033[1;37mkad execute 'echo hello world' servergroup\033[0m - Executes 'echo hello world' on group 'servergroup'
 
-\033[1;37mkad copy /home/krum/test /home/krum servergroup\033[0m - Copies file 'test' to '/home/krum' on group 'servergroup'
-"
+\033[1;37mkad copy /home/krum/test /home/krum servergroup\033[0m - Copies file 'test' to '/home/krum' on group 'servergroup'\n"
 
     return 0
 
