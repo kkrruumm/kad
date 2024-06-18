@@ -1,0 +1,120 @@
+#!/bin/sh
+set -e # Exit if any simple command returns ! 0
+
+failure() {
+    echo "$1"
+    return 1
+}
+
+# Check that dependencies and configs exist on the system before operation
+! which ssh > /dev/null 2>&1 && failure "OpenSSH does not appear to be installed. Cannot continue."
+
+[ ! -e ~/.config/kad ] && ( mkdir ~/.config/kad || failure "The ~/.config/kad/ directory does not exist and creating it has failed." )
+[ ! -e ~/.config/kad/groups ] && ( touch ~/.config/kad/groups || failure "The ~/.config/kad/groups file does not exist and creating it has failed." )
+
+help() {
+
+    echo "
+\033[4;37mKAD - Krums Auto Deploy\033[0m
+
+This is a simple script to run commands and scripts on multiple machines in parallel.
+
+\033[4;37mGeneral command cheatsheet\033[0m
+
+\033[1;37mkad execute 'command' group\033[0m - Execute 'command' on machine group 'group'
+
+\033[1;37mkad copy file destination group\033[0m - Copy 'file'(s) to 'destination' on machine group 'group'
+
+\033[1;37mkad help\033[0m - Shows this help menu
+
+\033[4;37mConfiguring\033[0m
+
+Machine groups can be defined in ~/.config/kad/groups as an 'array' of IP addresses and usernames following shell syntax.
+
+Example: \033[1;37mservergroup='krum@10.0.0.100 krum@10.0.0.101'\033[0m
+
+\033[4;37mExample commands\033[0m
+
+\033[1;37mkad execute 'echo hello world' servergroup\033[0m - Executes 'echo hello world' on group 'servergroup'
+
+\033[1;37mkad copy /home/krum/test /home/krum servergroup\033[0m - Copies file 'test' to '/home/krum' on group 'servergroup'
+"
+
+    return 0
+
+}
+
+execute() {
+
+    [ -e ~/.config/kad/groups ] && . ~/.config/kad/groups
+    ! grep -w "$2" ~/.config/kad/groups > /dev/null 2>&1 && failure "Group not found. Is it defined in ~/.config/kad/groups?"
+
+    # Check if ssh-agent is already running, if not, execute it.
+    pgrep ssh-agent > /dev/null 2>&1 || eval $(ssh-agent)
+    # Check if there are already any managed SSH keys, if not, add one.
+    ssh-add -l > /dev/null 2>&1 || ssh-add -t 4H
+
+    echo "Executing command on group $2..."
+
+    # Expand "array" contents
+    eval ArrayValue=\$${2}
+    for i in $ArrayValue
+    do
+        ssh "$i" "$1"& # Launch ssh sessions in parallel
+    done
+
+    wait # Wait for all background processes to exit before continuing
+
+    return 0
+
+}
+
+copy() {
+
+    [ -e ~/.config/kad/groups ] && . ~/.config/kad/groups
+    ! grep -w "$3" ~/.config/kad/groups > /dev/null 2>&1 && failure "Group not found. Is it defined in ~/.config/kad/groups?"
+
+    # Check if ssh-agent is already running, if not, execute it.
+    pgrep ssh-agent > /dev/null 2>&1 || eval $(ssh-agent)
+    # Check if there are already any managed SSH keys, if not, add one.
+    ssh-add -l > /dev/null 2>&1 || ssh-add -t 4H
+
+    echo "Copying file to group $3..."
+
+    eval ArrayValue=\$${3}
+    for i in $ArrayValue
+    do
+        scp "$1" "$i:$2"& # Launch scp sessions in parallel
+    done
+
+    wait # Wait for all background processes to exit before continuing
+
+    return 0
+
+}
+
+case $1 in
+    help)
+        help
+    ;;
+
+    execute)
+        [ -z "$2" ] && failure "Command to execute not defined. Did you enter your command correctly?"
+        [ -z "$3" ] && failure "Machine group not defined. Did you enter your command correctly?"
+
+        execute "$2" "$3"
+    ;;
+
+    copy)
+        [ ! -e "$2" ] && failure "File not found. Did you enter your command correctly?"
+        [ -z "$2" ] && failure "File to copy not defined. Did you enter your command correctly?"
+        [ -z "$3" ] && failure "Machine group not defined. Did you enter your command correctly?"
+        [ -z "$4" ] && failure "Destination to copy to not defined. Did you enter your command correctly?"
+
+        copy "$2" "$3" "$4"
+    ;;
+
+    *)
+        help
+    ;;
+esac
