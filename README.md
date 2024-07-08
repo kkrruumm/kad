@@ -1,6 +1,8 @@
 # kad
 This is a simple script to run commands and scripts on multiple machines in parallel.
 
+This script assumes you've already set up SSH access on the machines you wish to control.
+
 # General command cheatsheet
 
 ``kad execute 'command' group`` - Execute 'command' on machine group 'group'
